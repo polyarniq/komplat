@@ -11,6 +11,8 @@ import ru.komplat.domain.repository.UtilityCompanyRepository
 import ru.komplat.domain.usecase.expense.AddExpenseUseCase
 import ru.komplat.domain.usecase.expense.DeleteExpenseUseCase
 import ru.komplat.domain.usecase.expense.UpdateExpenseUseCase
+import ru.komplat.domain.usecase.file.AttachFileUseCase
+import ru.komplat.domain.usecase.file.DeleteFileUseCase
 import ru.komplat.domain.usecase.file.GetFilesUseCase
 import javax.inject.Inject
 
@@ -38,7 +40,9 @@ class ExpenseDetailViewModel @Inject constructor(
     private val deleteExpense: DeleteExpenseUseCase,
     private val expenseRepository: ExpenseRepository,
     private val companyRepository: UtilityCompanyRepository,
-    private val getFiles: GetFilesUseCase
+    private val getFiles: GetFilesUseCase,
+    private val attachFile: AttachFileUseCase,
+    private val deleteFile: DeleteFileUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ExpenseDetailUiState())
     val uiState: StateFlow<ExpenseDetailUiState> = _uiState.asStateFlow()
@@ -174,6 +178,35 @@ class ExpenseDetailViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(isLoading = false, error = e.message)
                 }
+            }
+        }
+    }
+
+    fun attachFile(filePath: String, fileName: String, mimeType: String, fileSize: Long) {
+        val expenseId = _uiState.value.expense?.id ?: return
+        viewModelScope.launch {
+            try {
+                val file = AttachedFile(
+                    expenseId = expenseId,
+                    filePath = filePath,
+                    fileName = fileName,
+                    fileType = if (mimeType.startsWith("image/")) FileType.RECEIPT else FileType.OTHER,
+                    mimeType = mimeType,
+                    fileSize = fileSize
+                )
+                attachFile(file)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun deleteAttachedFile(fileId: Long) {
+        viewModelScope.launch {
+            try {
+                deleteFile(fileId)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
             }
         }
     }

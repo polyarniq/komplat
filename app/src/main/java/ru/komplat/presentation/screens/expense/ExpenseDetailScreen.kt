@@ -1,5 +1,12 @@
 package ru.komplat.presentation.screens.expense
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -10,11 +17,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.komplat.domain.model.AttachedFile
 import ru.komplat.domain.model.CompanyType
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,9 +38,58 @@ fun ExpenseDetailScreen(
     viewModel: ExpenseDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showServiceTypeDropdown by remember { mutableStateOf(false) }
     var showCompanyDropdown by remember { mutableStateOf(false) }
+    var photoUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Camera launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && photoUri != null) {
+            val file = File(photoUri!!.path!!)
+            viewModel.attachFile(
+                filePath = file.absolutePath,
+                fileName = file.name,
+                mimeType = "image/jpeg",
+                fileSize = file.length()
+            )
+        }
+    }
+
+    // File picker launcher
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { selectedUri ->
+            val fileName = getFileName(context, selectedUri)
+            val file = File(context.filesDir, "attachments/${fileName}")
+            file.parentFile?.mkdirs()
+            context.contentResolver.openInputStream(selectedUri)?.use { input ->
+                file.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            viewModel.attachFile(
+                filePath = file.absolutePath,
+                fileName = fileName,
+                mimeType = context.contentResolver.getType(selectedUri) ?: "application/octet-stream",
+                fileSize = file.length()
+            )
+        }
+    }
+
+    // Permission launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            photoUri = createImageUri(context)
+            photoUri?.let { cameraLauncher.launch(it) }
+        }
+    }
 
     LaunchedEffect(expenseId) {
         if (expenseId > 0) {
@@ -194,6 +257,50 @@ fun ExpenseDetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // File attachments section (only for existing expenses)
+            if (expenseId > 0) {
+                Text(
+                    text = "Прикреплённые файлы",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                // Buttons for attaching files
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Камера")
+                    }
+                    OutlinedButton(
+                        onClick = { filePickerLauncher.launch("*/*") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.AttachFile, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Файл")
+                    }
+                }
+
+                // List of attached files
+                uiState.files.forEach { file ->
+                    AttachedFileCard(
+                        file = file,
+                        onView = { openFile(context, file) },
+                        onDelete = { viewModel.deleteAttachedFile(file.id) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Save button
             Button(
                 onClick = { viewModel.save() },
@@ -258,5 +365,108 @@ private fun getTypeDisplayName(type: CompanyType): String {
         CompanyType.INTERNET -> "Интернет"
         CompanyType.TV -> "Телевидение"
         CompanyType.OTHER -> "Другое"
+    }
+}
+
+private fun createImageUri(context: Context): Uri {
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    val imageFileName = "JPEG_${timeStamp}_"
+    val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    val imageFile = File.createTempFile(imageFileName, ".jpg", storageDir)
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
+}
+
+private fun getFileName(context: Context, uri: Uri): String {
+    var fileName = "file_${System.currentTimeMillis()}"
+    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        if (cursor.moveToFirst() && nameIndex >= 0) {
+            fileName = cursor.getString(nameIndex) ?: fileName
+        }
+    }
+    return fileName
+}
+
+private fun openFile(context: Context, file: AttachedFile) {
+    val fileUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(file.filePath))
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(fileUri, file.mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(intent)
+}
+
+@Composable
+private fun AttachedFileCard(
+    file: AttachedFile,
+    onView: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (file.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = file.fileName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1
+                )
+                Text(
+                    text = formatFileSize(file.fileSize),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onView) {
+                Icon(Icons.Default.Visibility, contentDescription = "Просмотреть")
+            }
+            IconButton(onClick = { showDeleteDialog = true }) {
+                Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Удалить файл") },
+            text = { Text("Вы уверены, что хотите удалить этот файл?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete()
+                    showDeleteDialog = false
+                }) {
+                    Text("Удалить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Отмена")
+                }
+            }
+        )
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes Б"
+        bytes < 1024 * 1024 -> "${bytes / 1024} КБ"
+        else -> "${"%.1f".format(bytes / (1024.0 * 1024.0))} МБ"
     }
 }
