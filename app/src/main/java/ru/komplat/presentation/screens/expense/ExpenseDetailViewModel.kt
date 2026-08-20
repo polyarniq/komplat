@@ -198,7 +198,7 @@ class ExpenseDetailViewModel @Inject constructor(
     fun attachFile(filePath: String, fileName: String, mimeType: String, fileSize: Long) {
         val expenseId = _uiState.value.expense?.id
         if (expenseId != null) {
-            // Existing expense - save to database immediately
+            // Existing expense - save to database immediately and reload
             viewModelScope.launch {
                 try {
                     val file = AttachedFile(
@@ -210,6 +210,8 @@ class ExpenseDetailViewModel @Inject constructor(
                         fileSize = fileSize
                     )
                     attachFile(file)
+                    // Reload files from database
+                    loadFiles(expenseId)
                 } catch (e: Exception) {
                     _uiState.update { it.copy(error = e.message) }
                 }
@@ -222,9 +224,12 @@ class ExpenseDetailViewModel @Inject constructor(
     }
 
     fun deleteAttachedFile(fileId: Long) {
+        val expenseId = _uiState.value.expense?.id ?: return
         viewModelScope.launch {
             try {
                 deleteFile(fileId)
+                // Reload files from database
+                loadFiles(expenseId)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
