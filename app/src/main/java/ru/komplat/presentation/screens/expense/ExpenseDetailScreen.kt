@@ -257,46 +257,53 @@ fun ExpenseDetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // File attachments section (only for existing expenses)
-            if (expenseId > 0) {
-                Text(
-                    text = "Прикреплённые файлы",
-                    style = MaterialTheme.typography.titleMedium
-                )
+            // File attachments section
+            Text(
+                text = "Прикреплённые файлы",
+                style = MaterialTheme.typography.titleMedium
+            )
 
-                // Buttons for attaching files
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Buttons for attaching files
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                    },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            permissionLauncher.launch(android.Manifest.permission.CAMERA)
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Камера")
-                    }
-                    OutlinedButton(
-                        onClick = { filePickerLauncher.launch("*/*") },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.AttachFile, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Файл")
-                    }
+                    Icon(Icons.Default.CameraAlt, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Камера")
                 }
+                OutlinedButton(
+                    onClick = { filePickerLauncher.launch("*/*") },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.AttachFile, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Файл")
+                }
+            }
 
-                // List of attached files
-                uiState.files.forEach { file ->
-                    AttachedFileCard(
-                        file = file,
-                        onView = { openFile(context, file) },
-                        onDelete = { viewModel.deleteAttachedFile(file.id) }
-                    )
-                }
+            // List of saved files (for existing expenses)
+            uiState.files.forEach { file ->
+                AttachedFileCard(
+                    file = file,
+                    onView = { openFile(context, file) },
+                    onDelete = { viewModel.deleteAttachedFile(file.id) }
+                )
+            }
+
+            // List of pending files (for new expenses)
+            uiState.pendingFiles.forEachIndexed { index, pendingFile ->
+                PendingFileCard(
+                    pendingFile = pendingFile,
+                    onView = { openPendingFile(context, pendingFile) },
+                    onDelete = { viewModel.deletePendingFile(index) }
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -468,5 +475,92 @@ private fun formatFileSize(bytes: Long): String {
         bytes < 1024 -> "$bytes Б"
         bytes < 1024 * 1024 -> "${bytes / 1024} КБ"
         else -> "${"%.1f".format(bytes / (1024.0 * 1024.0))} МБ"
+    }
+}
+
+private fun openPendingFile(context: Context, pendingFile: PendingFile) {
+    val file = File(pendingFile.filePath)
+    if (file.exists()) {
+        val fileUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(fileUri, pendingFile.mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(intent)
+    }
+}
+
+@Composable
+private fun PendingFileCard(
+    pendingFile: PendingFile,
+    onView: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (pendingFile.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.Description,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = pendingFile.fileName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1
+                )
+                Text(
+                    text = formatFileSize(pendingFile.fileSize),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Будет сохранён",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            IconButton(onClick = onView) {
+                Icon(Icons.Default.Visibility, contentDescription = "Просмотреть")
+            }
+            IconButton(onClick = { showDeleteDialog = true }) {
+                Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Удалить файл") },
+            text = { Text("Вы уверены, что хотите удалить этот файл?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete()
+                    showDeleteDialog = false
+                }) {
+                    Text("Удалить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Отмена")
+                }
+            }
+        )
     }
 }

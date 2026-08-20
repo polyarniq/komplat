@@ -16,11 +16,19 @@ import ru.komplat.domain.usecase.file.DeleteFileUseCase
 import ru.komplat.domain.usecase.file.GetFilesUseCase
 import javax.inject.Inject
 
+data class PendingFile(
+    val filePath: String,
+    val fileName: String,
+    val mimeType: String,
+    val fileSize: Long
+)
+
 data class ExpenseDetailUiState(
     val expense: Expense? = null,
     val allCompanies: List<UtilityCompany> = emptyList(),
     val filteredCompanies: List<UtilityCompany> = emptyList(),
     val files: List<AttachedFile> = emptyList(),
+    val pendingFiles: List<PendingFile> = emptyList(),
     val selectedServiceType: CompanyType = CompanyType.OTHER,
     val selectedCompanyId: Long? = null,
     val amount: String = "",
@@ -153,10 +161,15 @@ class ExpenseDetailViewModel @Inject constructor(
                     note = state.note.takeIf { it.isNotBlank() },
                     isPaid = state.isPaid
                 )
-                if (state.expense == null) {
+                val expenseId = if (state.expense == null) {
                     addExpense(expense)
                 } else {
                     updateExpense(expense)
+                    expense.id
+                }
+                // Save pending files for new expenses
+                if (state.pendingFiles.isNotEmpty()) {
+                    savePendingFiles(expenseId)
                 }
                 _uiState.update { it.copy(isLoading = false, isSaved = true) }
             } catch (e: Exception) {
@@ -183,21 +196,28 @@ class ExpenseDetailViewModel @Inject constructor(
     }
 
     fun attachFile(filePath: String, fileName: String, mimeType: String, fileSize: Long) {
-        val expenseId = _uiState.value.expense?.id ?: return
-        viewModelScope.launch {
-            try {
-                val file = AttachedFile(
-                    expenseId = expenseId,
-                    filePath = filePath,
-                    fileName = fileName,
-                    fileType = if (mimeType.startsWith("image/")) FileType.RECEIPT else FileType.OTHER,
-                    mimeType = mimeType,
-                    fileSize = fileSize
-                )
-                attachFile(file)
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
+        val expenseId = _uiState.value.expense?.id
+        if (expenseId != null) {
+            // Existing expense - save to database immediately
+            viewModelScope.launch {
+                try {
+                    val file = AttachedFile(
+                        expenseId = expenseId,
+                        filePath = filePath,
+                        fileName = fileName,
+                        fileType = if (mimeType.startsWith("image/")) FileType.RECEIPT else FileType.OTHER,
+                        mimeType = mimeType,
+                        fileSize = fileSize
+                    )
+                    attachFile(file)
+                } catch (e: Exception) {
+                    _uiState.update { it.copy(error = e.message) }
+                }
             }
+        } else {
+            // New expense - store in pending files
+            val pendingFile = PendingFile(filePath, fileName, mimeType, fileSize)
+            _uiState.update { it.copy(pendingFiles = it.pendingFiles + pendingFile) }
         }
     }
 
@@ -209,5 +229,29 @@ class ExpenseDetailViewModel @Inject constructor(
                 _uiState.update { it.copy(error = e.message) }
             }
         }
+    }
+
+    fun deletePendingFile(index: Int) {
+        _uiState.update { it.copy(pendingFiles = it.pendingFiles.toMutableList().apply { removeAt(index) }) }
+    }
+
+    private suspend fun savePendingFiles(expenseId: Long) {
+        val pendingFiles = _uiState.value.pendingFiles
+        for (pendingFile in pendingFiles) {
+            try {
+                val file = AttachedFile(
+                    expenseId = expenseId,
+                    filePath = pendingFile.filePath,
+                    fileName = pendingFile.fileName,
+                    fileType = if (pendingFile.mimeType.startsWith("image/")) FileType.RECEIPT else FileType.OTHER,
+                    mimeType = pendingFile.mimeType,
+                    fileSize = pendingFile.fileSize
+                )
+                attachFile(file)
+            } catch (e: Exception) {
+                // Continue with other files even if one fails
+            }
+        }
+        _uiState.update { it.copy(pendingFiles = emptyList()) }
     }
 }
