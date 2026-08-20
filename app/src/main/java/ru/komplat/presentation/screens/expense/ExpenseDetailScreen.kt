@@ -14,6 +14,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.komplat.domain.model.CompanyType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,11 +25,12 @@ fun ExpenseDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showServiceTypeDropdown by remember { mutableStateOf(false) }
+    var showCompanyDropdown by remember { mutableStateOf(false) }
 
     LaunchedEffect(expenseId) {
         if (expenseId > 0) {
-            // Load existing expense - would need to fetch from repository
-            // For now, we'll assume the expense is passed or loaded elsewhere
+            viewModel.loadExpenseById(expenseId)
         }
     }
 
@@ -72,21 +74,84 @@ fun ExpenseDetailScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Company selector
+            // Service type selector
             ExposedDropdownMenuBox(
-                expanded = false,
-                onExpandedChange = {}
+                expanded = showServiceTypeDropdown,
+                onExpandedChange = { showServiceTypeDropdown = it }
             ) {
                 OutlinedTextField(
-                    value = uiState.companies.find { it.id == uiState.selectedCompanyId }?.name ?: "",
+                    value = getTypeDisplayName(uiState.selectedServiceType),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Компания") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = false) },
+                    label = { Text("Тип услуги") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showServiceTypeDropdown) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
                 )
+                ExposedDropdownMenu(
+                    expanded = showServiceTypeDropdown,
+                    onDismissRequest = { showServiceTypeDropdown = false }
+                ) {
+                    CompanyType.values().forEach { type ->
+                        DropdownMenuItem(
+                            text = { Text(getTypeDisplayName(type)) },
+                            onClick = {
+                                viewModel.updateServiceType(type)
+                                showServiceTypeDropdown = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Company selector (filtered by service type)
+            ExposedDropdownMenuBox(
+                expanded = showCompanyDropdown,
+                onExpandedChange = { showCompanyDropdown = it }
+            ) {
+                val selectedCompany = uiState.filteredCompanies.find { it.id == uiState.selectedCompanyId }
+                OutlinedTextField(
+                    value = if (selectedCompany != null) {
+                        if (selectedCompany.type == CompanyType.OTHER && !selectedCompany.customType.isNullOrBlank()) {
+                            "${selectedCompany.name} (${selectedCompany.customType})"
+                        } else {
+                            selectedCompany.name
+                        }
+                    } else "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Компания") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCompanyDropdown) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = showCompanyDropdown,
+                    onDismissRequest = { showCompanyDropdown = false }
+                ) {
+                    uiState.filteredCompanies.forEach { company ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(company.name)
+                                    if (company.type == CompanyType.OTHER && !company.customType.isNullOrBlank()) {
+                                        Text(
+                                            text = company.customType,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            },
+                            onClick = {
+                                viewModel.updateCompanyId(company.id)
+                                showCompanyDropdown = false
+                            }
+                        )
+                    }
+                }
             }
 
             // Amount
@@ -178,5 +243,20 @@ fun ExpenseDetailScreen(
                 }
             }
         )
+    }
+}
+
+private fun getTypeDisplayName(type: CompanyType): String {
+    return when (type) {
+        CompanyType.GAS -> "Газ"
+        CompanyType.ELECTRICITY -> "Электричество"
+        CompanyType.WATER -> "Вода"
+        CompanyType.HEATING -> "Отопление"
+        CompanyType.ELEVATOR -> "Лифт"
+        CompanyType.GARBAGE -> "Мусор"
+        CompanyType.MAINTENANCE -> "Капитальный ремонт"
+        CompanyType.INTERNET -> "Интернет"
+        CompanyType.TV -> "Телевидение"
+        CompanyType.OTHER -> "Другое"
     }
 }

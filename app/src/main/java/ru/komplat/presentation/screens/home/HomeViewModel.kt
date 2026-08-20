@@ -31,9 +31,11 @@ class HomeViewModel @Inject constructor(
         loadExpenses()
     }
 
-    fun loadExpenses() {
+    fun loadExpenses(showLoading: Boolean = true) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            if (showLoading) {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+            }
             try {
                 val period = _uiState.value.currentPeriod
                 getExpensesByPeriod(period.formatted).first().let { expenses ->

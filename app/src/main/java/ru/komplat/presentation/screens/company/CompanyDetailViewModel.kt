@@ -8,7 +8,6 @@ import kotlinx.coroutines.launch
 import ru.komplat.domain.model.*
 import ru.komplat.domain.usecase.company.GetCompanyByIdUseCase
 import ru.komplat.domain.usecase.company.ManageCompanyUseCase
-import ru.komplat.domain.usecase.expense.GetExpensesByPeriodUseCase
 import ru.komplat.domain.usecase.file.GetFilesUseCase
 import javax.inject.Inject
 
@@ -18,6 +17,7 @@ data class CompanyDetailUiState(
     val files: List<AttachedFile> = emptyList(),
     val name: String = "",
     val type: CompanyType = CompanyType.OTHER,
+    val customType: String = "",
     val accountNumber: String = "",
     val description: String = "",
     val phone: String = "",
@@ -49,6 +49,7 @@ class CompanyDetailViewModel @Inject constructor(
                             company = company,
                             name = company.name,
                             type = company.type,
+                            customType = company.customType ?: "",
                             accountNumber = company.accountNumber ?: "",
                             description = company.description ?: "",
                             phone = company.contactPhone ?: "",
@@ -79,6 +80,10 @@ class CompanyDetailViewModel @Inject constructor(
 
     fun updateType(type: CompanyType) {
         _uiState.update { it.copy(type = type) }
+    }
+
+    fun updateCustomType(customType: String) {
+        _uiState.update { it.copy(customType = customType) }
     }
 
     fun updateAccountNumber(accountNumber: String) {
@@ -112,6 +117,7 @@ class CompanyDetailViewModel @Inject constructor(
                     id = state.company?.id ?: 0,
                     name = state.name,
                     type = state.type,
+                    customType = if (state.type == CompanyType.OTHER) state.customType.takeIf { it.isNotBlank() } else null,
                     accountNumber = state.accountNumber.takeIf { it.isNotBlank() },
                     description = state.description.takeIf { it.isNotBlank() },
                     contactPhone = state.phone.takeIf { it.isNotBlank() },

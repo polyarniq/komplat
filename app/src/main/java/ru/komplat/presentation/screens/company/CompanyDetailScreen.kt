@@ -84,7 +84,7 @@ fun CompanyDetailScreen(
                 onExpandedChange = { showTypeDropdown = it }
             ) {
                 OutlinedTextField(
-                    value = getTypeDisplayName(uiState.type),
+                    value = if (uiState.type == CompanyType.OTHER && uiState.customType.isNotBlank()) uiState.customType else getTypeDisplayName(uiState.type),
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Тип услуги") },
@@ -107,6 +107,16 @@ fun CompanyDetailScreen(
                         )
                     }
                 }
+            }
+
+            // Custom type field (shown when "Другое" is selected)
+            if (uiState.type == CompanyType.OTHER) {
+                OutlinedTextField(
+                    value = uiState.customType,
+                    onValueChange = { viewModel.updateCustomType(it) },
+                    label = { Text("Свой тип услуги") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             // Account number

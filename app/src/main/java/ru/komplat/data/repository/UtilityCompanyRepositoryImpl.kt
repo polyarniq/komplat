@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.flowOn
 import ru.komplat.data.local.db.DatabaseHelper
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_ACCOUNT_NUMBER
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_CREATED_AT
+import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_CUSTOM_TYPE
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_DESCRIPTION
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_EMAIL
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_ID
@@ -86,6 +87,7 @@ class UtilityCompanyRepositoryImpl @Inject constructor(
             id = cursor.getLong(cursor.getColumnIndexOrThrow(COL_ID)),
             name = cursor.getString(cursor.getColumnIndexOrThrow(COL_NAME)),
             type = CompanyType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(COL_TYPE))),
+            customType = cursor.getString(cursor.getColumnIndexOrThrow(COL_CUSTOM_TYPE)),
             accountNumber = cursor.getString(cursor.getColumnIndexOrThrow(COL_ACCOUNT_NUMBER)),
             description = cursor.getString(cursor.getColumnIndexOrThrow(COL_DESCRIPTION)),
             logoUri = cursor.getString(cursor.getColumnIndexOrThrow(COL_LOGO_URI)),
@@ -101,6 +103,7 @@ class UtilityCompanyRepositoryImpl @Inject constructor(
         return ContentValues().apply {
             put(COL_NAME, company.name)
             put(COL_TYPE, company.type.name)
+            put(COL_CUSTOM_TYPE, company.customType)
             put(COL_ACCOUNT_NUMBER, company.accountNumber)
             put(COL_DESCRIPTION, company.description)
             put(COL_LOGO_URI, company.logoUri)

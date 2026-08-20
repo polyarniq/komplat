@@ -5,6 +5,8 @@ data class Expense(
     val companyId: Long,
     val companyName: String = "",
     val companyType: CompanyType = CompanyType.OTHER,
+    val companyCustomType: String? = null,
+    val serviceType: CompanyType = CompanyType.OTHER,
     val amount: Double,
     val period: String, // Format: "YYYY-MM"
     val paymentDate: Long? = null,

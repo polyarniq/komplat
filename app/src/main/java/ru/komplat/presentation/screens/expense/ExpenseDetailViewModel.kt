@@ -6,17 +6,20 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ru.komplat.domain.model.*
-import ru.komplat.domain.usecase.company.GetCompaniesUseCase
+import ru.komplat.domain.repository.ExpenseRepository
+import ru.komplat.domain.repository.UtilityCompanyRepository
 import ru.komplat.domain.usecase.expense.AddExpenseUseCase
 import ru.komplat.domain.usecase.expense.DeleteExpenseUseCase
-import ru.komplat.domain.usecase.expense.GetExpensesByPeriodUseCase
+import ru.komplat.domain.usecase.expense.UpdateExpenseUseCase
 import ru.komplat.domain.usecase.file.GetFilesUseCase
 import javax.inject.Inject
 
 data class ExpenseDetailUiState(
     val expense: Expense? = null,
-    val companies: List<UtilityCompany> = emptyList(),
+    val allCompanies: List<UtilityCompany> = emptyList(),
+    val filteredCompanies: List<UtilityCompany> = emptyList(),
     val files: List<AttachedFile> = emptyList(),
+    val selectedServiceType: CompanyType = CompanyType.OTHER,
     val selectedCompanyId: Long? = null,
     val amount: String = "",
     val period: String = "",
@@ -31,8 +34,10 @@ data class ExpenseDetailUiState(
 @HiltViewModel
 class ExpenseDetailViewModel @Inject constructor(
     private val addExpense: AddExpenseUseCase,
+    private val updateExpense: UpdateExpenseUseCase,
     private val deleteExpense: DeleteExpenseUseCase,
-    private val getCompanies: GetCompaniesUseCase,
+    private val expenseRepository: ExpenseRepository,
+    private val companyRepository: UtilityCompanyRepository,
     private val getFiles: GetFilesUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ExpenseDetailUiState())
@@ -44,8 +49,38 @@ class ExpenseDetailViewModel @Inject constructor(
 
     private fun loadCompanies() {
         viewModelScope.launch {
-            getCompanies().collect { companies ->
-                _uiState.update { it.copy(companies = companies) }
+            companyRepository.getAllCompanies().collect { companies ->
+                _uiState.update {
+                    it.copy(
+                        allCompanies = companies,
+                        filteredCompanies = companies.filter { c -> c.type == it.selectedServiceType }
+                    )
+                }
+            }
+        }
+    }
+
+    fun updateServiceType(type: CompanyType) {
+        _uiState.update {
+            it.copy(
+                selectedServiceType = type,
+                selectedCompanyId = null,
+                filteredCompanies = it.allCompanies.filter { c -> c.type == type }
+            )
+        }
+    }
+
+    fun loadExpenseById(expenseId: Long) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val expense = expenseRepository.getExpenseById(expenseId)
+                if (expense != null) {
+                    loadExpense(expense)
+                }
+                _uiState.update { it.copy(isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
@@ -54,7 +89,9 @@ class ExpenseDetailViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 expense = expense,
+                selectedServiceType = expense.serviceType,
                 selectedCompanyId = expense.companyId,
+                filteredCompanies = it.allCompanies.filter { c -> c.type == expense.serviceType },
                 amount = expense.amount.toString(),
                 period = expense.period,
                 note = expense.note ?: "",
@@ -106,12 +143,17 @@ class ExpenseDetailViewModel @Inject constructor(
                 val expense = Expense(
                     id = state.expense?.id ?: 0,
                     companyId = companyId,
+                    serviceType = state.selectedServiceType,
                     amount = amount,
                     period = period,
                     note = state.note.takeIf { it.isNotBlank() },
                     isPaid = state.isPaid
                 )
-                addExpense(expense)
+                if (state.expense == null) {
+                    addExpense(expense)
+                } else {
+                    updateExpense(expense)
+                }
                 _uiState.update { it.copy(isLoading = false, isSaved = true) }
             } catch (e: Exception) {
                 _uiState.update {

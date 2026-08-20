@@ -13,7 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import ru.komplat.presentation.components.cards.ExpenseCard
 import java.text.NumberFormat
 import java.util.Locale
@@ -29,9 +32,12 @@ fun ExpenseListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("ru", "RU")) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(period) {
-        viewModel.loadExpenses(period)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.loadExpenses(period, showLoading = false)
+        }
     }
 
     Scaffold(

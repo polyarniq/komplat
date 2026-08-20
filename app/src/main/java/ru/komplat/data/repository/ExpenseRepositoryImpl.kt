@@ -9,12 +9,14 @@ import ru.komplat.data.local.db.DatabaseHelper
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_AMOUNT
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_COMPANY_ID
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_CREATED_AT
+import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_CUSTOM_TYPE
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_ID
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_IS_PAID
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_NAME
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_NOTE
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_PAYMENT_DATE
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_PERIOD
+import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_SERVICE_TYPE
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_TYPE
 import ru.komplat.data.local.db.DatabaseHelper.Companion.COL_UPDATED_AT
 import ru.komplat.data.local.db.DatabaseHelper.Companion.TABLE_COMPANIES
@@ -31,7 +33,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     override fun getAllExpenses(): Flow<List<Expense>> = flow {
         val expenses = mutableListOf<Expense>()
         val sql = """
-            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type
+            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type, c.$COL_CUSTOM_TYPE as company_custom_type
             FROM $TABLE_EXPENSES e
             INNER JOIN $TABLE_COMPANIES c ON e.$COL_COMPANY_ID = c.$COL_ID
             ORDER BY e.$COL_PERIOD DESC, c.$COL_NAME ASC
@@ -48,7 +50,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     override fun getExpensesByPeriod(period: String): Flow<List<Expense>> = flow {
         val expenses = mutableListOf<Expense>()
         val sql = """
-            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type
+            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type, c.$COL_CUSTOM_TYPE as company_custom_type
             FROM $TABLE_EXPENSES e
             INNER JOIN $TABLE_COMPANIES c ON e.$COL_COMPANY_ID = c.$COL_ID
             WHERE e.$COL_PERIOD = ?
@@ -66,7 +68,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     override fun getExpensesByCompany(companyId: Long): Flow<List<Expense>> = flow {
         val expenses = mutableListOf<Expense>()
         val sql = """
-            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type
+            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type, c.$COL_CUSTOM_TYPE as company_custom_type
             FROM $TABLE_EXPENSES e
             INNER JOIN $TABLE_COMPANIES c ON e.$COL_COMPANY_ID = c.$COL_ID
             WHERE e.$COL_COMPANY_ID = ?
@@ -83,7 +85,7 @@ class ExpenseRepositoryImpl @Inject constructor(
 
     override suspend fun getExpenseById(id: Long): Expense? {
         val sql = """
-            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type
+            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type, c.$COL_CUSTOM_TYPE as company_custom_type
             FROM $TABLE_EXPENSES e
             INNER JOIN $TABLE_COMPANIES c ON e.$COL_COMPANY_ID = c.$COL_ID
             WHERE e.$COL_ID = ?
@@ -104,7 +106,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     override fun getExpensesForComparison(period1: String, period2: String): Flow<List<Expense>> = flow {
         val expenses = mutableListOf<Expense>()
         val sql = """
-            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type
+            SELECT e.*, c.$COL_NAME as company_name, c.$COL_TYPE as company_type, c.$COL_CUSTOM_TYPE as company_custom_type
             FROM $TABLE_EXPENSES e
             INNER JOIN $TABLE_COMPANIES c ON e.$COL_COMPANY_ID = c.$COL_ID
             WHERE e.$COL_PERIOD IN (?, ?)
@@ -154,6 +156,8 @@ class ExpenseRepositoryImpl @Inject constructor(
             companyId = cursor.getLong(cursor.getColumnIndexOrThrow(COL_COMPANY_ID)),
             companyName = cursor.getString(cursor.getColumnIndexOrThrow("company_name")),
             companyType = CompanyType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("company_type"))),
+            companyCustomType = cursor.getString(cursor.getColumnIndexOrThrow("company_custom_type")),
+            serviceType = CompanyType.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(COL_SERVICE_TYPE))),
             amount = cursor.getDouble(cursor.getColumnIndexOrThrow(COL_AMOUNT)),
             period = cursor.getString(cursor.getColumnIndexOrThrow(COL_PERIOD)),
             paymentDate = if (cursor.isNull(cursor.getColumnIndexOrThrow(COL_PAYMENT_DATE))) null else cursor.getLong(cursor.getColumnIndexOrThrow(COL_PAYMENT_DATE)),
@@ -167,6 +171,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     private fun expenseToContentValues(expense: Expense): ContentValues {
         return ContentValues().apply {
             put(COL_COMPANY_ID, expense.companyId)
+            put(COL_SERVICE_TYPE, expense.serviceType.name)
             put(COL_AMOUNT, expense.amount)
             put(COL_PERIOD, expense.period)
             put(COL_PAYMENT_DATE, expense.paymentDate)

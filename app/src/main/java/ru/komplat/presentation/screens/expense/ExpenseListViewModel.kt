@@ -25,9 +25,11 @@ class ExpenseListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ExpenseListUiState())
     val uiState: StateFlow<ExpenseListUiState> = _uiState.asStateFlow()
 
-    fun loadExpenses(period: String) {
+    fun loadExpenses(period: String, showLoading: Boolean = true) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            if (showLoading) {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+            }
             try {
                 getExpensesByPeriod(period).first().let { expenses ->
                     val total = getTotalByPeriod(period)

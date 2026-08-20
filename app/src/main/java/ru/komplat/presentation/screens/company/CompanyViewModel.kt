@@ -28,9 +28,11 @@ class CompanyViewModel @Inject constructor(
         loadCompanies()
     }
 
-    private fun loadCompanies() {
+    fun loadCompanies(showLoading: Boolean = true) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            if (showLoading) {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+            }
             try {
                 getCompanies().first().let { companies ->
                     _uiState.update {

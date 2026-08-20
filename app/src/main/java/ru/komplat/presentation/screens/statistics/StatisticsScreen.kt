@@ -12,9 +12,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.komplat.domain.model.CompanyType
+import ru.komplat.domain.model.Expense
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -234,24 +237,171 @@ fun StatisticsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Detailed comparison by company
+                // Detailed comparison by service type
                 Text(
                     text = "Детальное сравнение",
                     style = MaterialTheme.typography.titleMedium
                 )
 
-                // This would show a table comparing expenses by company
-                // For now, we'll show a placeholder
-                Card(
-                    modifier = Modifier.fillMaxWidth()
+                DetailedComparisonTable(
+                    period1Expenses = uiState.period1Expenses,
+                    period2Expenses = uiState.period2Expenses,
+                    period1 = uiState.period1,
+                    period2 = uiState.period2,
+                    currencyFormat = currencyFormat
+                )
+            }
+        }
+    }
+}
+
+data class ServiceTypeComparison(
+    val serviceTypeName: String,
+    val period1Amount: Double,
+    val period2Amount: Double
+) {
+    val difference: Double get() = period2Amount - period1Amount
+}
+
+@Composable
+private fun DetailedComparisonTable(
+    period1Expenses: List<Expense>,
+    period2Expenses: List<Expense>,
+    period1: String,
+    period2: String,
+    currencyFormat: NumberFormat
+) {
+    // Group expenses by service type
+    val period1ByType = period1Expenses.groupBy { expense ->
+        if (expense.serviceType == CompanyType.OTHER && !expense.companyCustomType.isNullOrBlank()) {
+            expense.companyCustomType
+        } else {
+            getTypeDisplayName(expense.serviceType)
+        }
+    }.mapValues { (_, expenses) -> expenses.sumOf { it.amount } }
+
+    val period2ByType = period2Expenses.groupBy { expense ->
+        if (expense.serviceType == CompanyType.OTHER && !expense.companyCustomType.isNullOrBlank()) {
+            expense.companyCustomType
+        } else {
+            getTypeDisplayName(expense.serviceType)
+        }
+    }.mapValues { (_, expenses) -> expenses.sumOf { it.amount } }
+
+    // Combine all service types
+    val allTypes = (period1ByType.keys + period2ByType.keys).sorted()
+
+    if (allTypes.isEmpty()) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Нет данных для сравнения",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        return
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Статья",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1.5f)
+                )
+                Text(
+                    text = period1,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = period2,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "+/-",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Data rows
+            allTypes.forEach { type ->
+                val amount1 = period1ByType[type] ?: 0.0
+                val amount2 = period2ByType[type] ?: 0.0
+                val diff = amount2 - amount1
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Здесь будет таблица сравнения по статьям расходов",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium
+                        text = type,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1.5f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    Text(
+                        text = currencyFormat.format(amount1),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = currencyFormat.format(amount2),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = if (diff > 0) "+${currencyFormat.format(diff)}" else currencyFormat.format(diff),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            diff > 0 -> MaterialTheme.colorScheme.error
+                            diff < 0 -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (type != allTypes.last()) {
+                    Divider(modifier = Modifier.padding(vertical = 2.dp))
                 }
             }
         }
+    }
+}
+
+private fun getTypeDisplayName(type: CompanyType): String {
+    return when (type) {
+        CompanyType.GAS -> "Газ"
+        CompanyType.ELECTRICITY -> "Электричество"
+        CompanyType.WATER -> "Вода"
+        CompanyType.HEATING -> "Отопление"
+        CompanyType.ELEVATOR -> "Лифт"
+        CompanyType.GARBAGE -> "Мусор"
+        CompanyType.MAINTENANCE -> "Капитальный ремонт"
+        CompanyType.INTERNET -> "Интернет"
+        CompanyType.TV -> "Телевидение"
+        CompanyType.OTHER -> "Другое"
     }
 }

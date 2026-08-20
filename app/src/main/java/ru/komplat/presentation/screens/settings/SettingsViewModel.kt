@@ -34,11 +34,11 @@ class SettingsViewModel @Inject constructor(
             try {
                 val file = File(context.cacheDir, "komplat_export.csv")
                 file.bufferedWriter().use { writer ->
-                    writer.write("Период;Компания;Тип;Сумма;Оплачено;Примечание")
+                    writer.write("Период;Компания;Тип услуги;Сумма;Оплачено;Примечание")
                     writer.newLine()
 
                     expenseRepository.getAllExpenses().first().forEach { expense ->
-                        writer.write("${expense.period};${expense.companyName};${expense.companyType};${expense.amount};${expense.isPaid};${expense.note ?: ""}")
+                        writer.write("${expense.period};${expense.companyName};${expense.serviceType};${expense.amount};${expense.isPaid};${expense.note ?: ""}")
                         writer.newLine()
                     }
                 }

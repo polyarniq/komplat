@@ -17,6 +17,7 @@ data class UtilityCompany(
     val id: Long = 0,
     val name: String,
     val type: CompanyType,
+    val customType: String? = null,
     val accountNumber: String? = null,
     val description: String? = null,
     val logoUri: String? = null,

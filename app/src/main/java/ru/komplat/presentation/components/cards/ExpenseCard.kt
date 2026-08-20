@@ -36,9 +36,9 @@ fun ExpenseCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon based on company type
+            // Icon based on service type
             Icon(
-                imageVector = getIconForType(expense.companyType),
+                imageVector = getIconForType(expense.serviceType),
                 contentDescription = null,
                 modifier = Modifier.size(40.dp),
                 tint = MaterialTheme.colorScheme.primary
@@ -46,12 +46,17 @@ fun ExpenseCard(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Company name and period
+            // Service type, company name and period
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = expense.companyName,
+                    text = if (expense.serviceType == CompanyType.OTHER && !expense.companyCustomType.isNullOrBlank()) expense.companyCustomType else getTypeDisplayName(expense.serviceType),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = expense.companyName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = expense.period,
@@ -92,5 +97,20 @@ private fun getIconForType(type: CompanyType): ImageVector {
         CompanyType.INTERNET -> Icons.Default.Wifi
         CompanyType.TV -> Icons.Default.Tv
         CompanyType.OTHER -> Icons.Default.Business
+    }
+}
+
+private fun getTypeDisplayName(type: CompanyType): String {
+    return when (type) {
+        CompanyType.GAS -> "Газ"
+        CompanyType.ELECTRICITY -> "Электричество"
+        CompanyType.WATER -> "Вода"
+        CompanyType.HEATING -> "Отопление"
+        CompanyType.ELEVATOR -> "Лифт"
+        CompanyType.GARBAGE -> "Мусор"
+        CompanyType.MAINTENANCE -> "Капитальный ремонт"
+        CompanyType.INTERNET -> "Интернет"
+        CompanyType.TV -> "Телевидение"
+        CompanyType.OTHER -> "Другое"
     }
 }

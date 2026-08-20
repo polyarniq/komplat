@@ -10,12 +10,13 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "komplat.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 3
 
         const val TABLE_COMPANIES = "utility_companies"
         const val COL_ID = "id"
         const val COL_NAME = "name"
         const val COL_TYPE = "type"
+        const val COL_CUSTOM_TYPE = "custom_type"
         const val COL_ACCOUNT_NUMBER = "account_number"
         const val COL_DESCRIPTION = "description"
         const val COL_LOGO_URI = "logo_uri"
@@ -27,6 +28,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         const val TABLE_EXPENSES = "expenses"
         const val COL_COMPANY_ID = "company_id"
+        const val COL_SERVICE_TYPE = "service_type"
         const val COL_AMOUNT = "amount"
         const val COL_PERIOD = "period"
         const val COL_PAYMENT_DATE = "payment_date"
@@ -48,6 +50,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 $COL_NAME TEXT NOT NULL,
                 $COL_TYPE TEXT NOT NULL,
+                $COL_CUSTOM_TYPE TEXT,
                 $COL_ACCOUNT_NUMBER TEXT,
                 $COL_DESCRIPTION TEXT,
                 $COL_LOGO_URI TEXT,
@@ -63,6 +66,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             CREATE TABLE $TABLE_EXPENSES (
                 $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 $COL_COMPANY_ID INTEGER NOT NULL,
+                $COL_SERVICE_TYPE TEXT NOT NULL DEFAULT 'OTHER',
                 $COL_AMOUNT REAL NOT NULL,
                 $COL_PERIOD TEXT NOT NULL,
                 $COL_PAYMENT_DATE INTEGER,
@@ -97,10 +101,12 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_FILES")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_EXPENSES")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_COMPANIES")
-        onCreate(db)
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE $TABLE_EXPENSES ADD COLUMN $COL_SERVICE_TYPE TEXT NOT NULL DEFAULT 'OTHER'")
+        }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE $TABLE_COMPANIES ADD COLUMN $COL_CUSTOM_TYPE TEXT")
+        }
     }
 
     fun query(table: String, columns: Array<String>? = null, selection: String? = null,
