@@ -72,26 +72,26 @@ class SettingsViewModel @Inject constructor(
             try {
                 var importedCount = 0
                 var skippedCount = 0
+                var errorCount = 0
+
+                // Load all companies once
+                val companies = companyRepository.getAllCompanies().first()
 
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     val reader = inputStream.bufferedReader(Charsets.UTF_8)
-                    val lines = reader.readLines()
+                    val content = reader.readText()
 
-                    if (lines.isEmpty()) return@use
+                    // Normalize line endings and remove BOM
+                    val normalizedContent = content
+                        .replace("\uFEFF", "")
+                        .replace("\r\n", "\n")
+                        .replace("\r", "\n")
 
-                    // Remove BOM from first line if present
-                    val firstLine = if (lines[0].startsWith("\uFEFF")) {
-                        lines[0].substring(1)
-                    } else {
-                        lines[0]
-                    }
-
-                    // Combine first line with rest
-                    val allLines = listOf(firstLine) + lines.drop(1)
+                    val lines = normalizedContent.split("\n")
 
                     // Skip header (first line), process data lines
-                    for (i in 1 until allLines.size) {
-                        val line = allLines[i].trim()
+                    for (i in 1 until lines.size) {
+                        val line = lines[i].trim()
                         if (line.isBlank()) continue
 
                         val parts = line.split(";")
@@ -99,27 +99,33 @@ class SettingsViewModel @Inject constructor(
                             val period = parts[0].trim()
                             val companyName = parts[1].trim()
                             val serviceTypeName = parts[2].trim()
-                            val amount = parts[3].trim().toDoubleOrNull()
-                            val isPaid = parts[4].trim().lowercase() == "true"
+                            val amountStr = parts[3].trim()
+                            val isPaidStr = parts[4].trim()
                             val note = parts.getOrNull(5)?.trim()?.takeIf { it.isNotBlank() }
 
+                            val amount = amountStr.toDoubleOrNull()
+
                             if (amount != null && period.isNotBlank() && companyName.isNotBlank()) {
-                                // Find company by name
-                                val companies = companyRepository.getAllCompanies().first()
+                                // Find company by name (exact match first, then case-insensitive)
                                 val company = companies.find { it.name == companyName }
+                                    ?: companies.find { it.name.equals(companyName, ignoreCase = true) }
 
                                 if (company != null) {
-                                    val serviceType = parseServiceType(serviceTypeName)
-                                    val expense = Expense(
-                                        companyId = company.id,
-                                        serviceType = serviceType,
-                                        amount = amount,
-                                        period = period,
-                                        isPaid = isPaid,
-                                        note = note
-                                    )
-                                    expenseRepository.insertExpense(expense)
-                                    importedCount++
+                                    try {
+                                        val serviceType = parseServiceType(serviceTypeName)
+                                        val expense = Expense(
+                                            companyId = company.id,
+                                            serviceType = serviceType,
+                                            amount = amount,
+                                            period = period,
+                                            isPaid = isPaidStr.lowercase() == "true",
+                                            note = note
+                                        )
+                                        expenseRepository.insertExpense(expense)
+                                        importedCount++
+                                    } catch (e: Exception) {
+                                        errorCount++
+                                    }
                                 } else {
                                     skippedCount++
                                 }
@@ -128,6 +134,15 @@ class SettingsViewModel @Inject constructor(
                             }
                         }
                     }
+                }
+
+                val result = buildString {
+                    append("Импортировано: $importedCount")
+                    if (skippedCount > 0) append(", пропущено: $skippedCount")
+                    if (errorCount > 0) append(", ошибок: $errorCount")
+                }
+                _uiState.update {
+                    it.copy(isImporting = false, importResult = result)
                 }
 
                 _uiState.update {
