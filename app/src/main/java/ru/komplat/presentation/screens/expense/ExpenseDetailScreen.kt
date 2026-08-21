@@ -43,18 +43,18 @@ fun ExpenseDetailScreen(
     var showServiceTypeDropdown by remember { mutableStateOf(false) }
     var showCompanyDropdown by remember { mutableStateOf(false) }
     var photoUri by remember { mutableStateOf<Uri?>(null) }
+    var photoFile by remember { mutableStateOf<File?>(null) }
 
     // Camera launcher
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success && photoUri != null) {
-            val file = File(photoUri!!.path!!)
+        if (success && photoFile != null && photoFile!!.exists()) {
             viewModel.attachFile(
-                filePath = file.absolutePath,
-                fileName = file.name,
+                filePath = photoFile!!.absolutePath,
+                fileName = photoFile!!.name,
                 mimeType = "image/jpeg",
-                fileSize = file.length()
+                fileSize = photoFile!!.length()
             )
         }
     }
@@ -86,7 +86,9 @@ fun ExpenseDetailScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            photoUri = createImageUri(context)
+            val file = createImageFile(context)
+            photoFile = file
+            photoUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             photoUri?.let { cameraLauncher.launch(it) }
         }
     }
@@ -375,12 +377,11 @@ private fun getTypeDisplayName(type: CompanyType): String {
     }
 }
 
-private fun createImageUri(context: Context): Uri {
+private fun createImageFile(context: Context): File {
     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
     val imageFileName = "JPEG_${timeStamp}_"
     val storageDir = File(context.filesDir, "attachments").apply { mkdirs() }
-    val imageFile = File.createTempFile(imageFileName, ".jpg", storageDir)
-    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
+    return File.createTempFile(imageFileName, ".jpg", storageDir)
 }
 
 private fun getFileName(context: Context, uri: Uri): String {
@@ -395,12 +396,21 @@ private fun getFileName(context: Context, uri: Uri): String {
 }
 
 private fun openFile(context: Context, file: AttachedFile) {
-    val fileUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(file.filePath))
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(fileUri, file.mimeType)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    try {
+        val fileObj = File(file.filePath)
+        if (!fileObj.exists()) {
+            android.widget.Toast.makeText(context, "Файл не найден", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val fileUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", fileObj)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(fileUri, file.mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        android.widget.Toast.makeText(context, "Ошибка открытия файла: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
     }
-    context.startActivity(intent)
 }
 
 @Composable
