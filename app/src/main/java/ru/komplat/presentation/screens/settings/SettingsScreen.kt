@@ -1,6 +1,8 @@
 package ru.komplat.presentation.screens.settings
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +25,12 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.importFromCsv(it) }
+    }
 
     Scaffold(
         topBar = {
@@ -95,6 +103,55 @@ fun SettingsScreen(
                             }
                         ) {
                             Text("Поделиться")
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            // Import section
+            Text(
+                text = "Импорт данных",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Button(
+                onClick = { importLauncher.launch("text/*") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isImporting
+            ) {
+                if (uiState.isImporting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(Icons.Default.FileUpload, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Импорт из CSV")
+                }
+            }
+
+            if (uiState.importResult != null) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = uiState.importResult ?: "",
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { viewModel.clearImportResult() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Закрыть")
                         }
                     }
                 }
