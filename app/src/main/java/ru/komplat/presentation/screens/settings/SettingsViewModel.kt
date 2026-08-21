@@ -77,12 +77,21 @@ class SettingsViewModel @Inject constructor(
                     val reader = inputStream.bufferedReader(Charsets.UTF_8)
                     val lines = reader.readLines()
 
-                    // Skip BOM if present
-                    val startIndex = if (lines.isNotEmpty() && lines[0].startsWith("\uFEFF")) 1 else 0
+                    if (lines.isEmpty()) return@use
 
-                    // Skip header
-                    for (i in (startIndex + 1) until lines.size) {
-                        val line = lines[i].trim()
+                    // Remove BOM from first line if present
+                    val firstLine = if (lines[0].startsWith("\uFEFF")) {
+                        lines[0].substring(1)
+                    } else {
+                        lines[0]
+                    }
+
+                    // Combine first line with rest
+                    val allLines = listOf(firstLine) + lines.drop(1)
+
+                    // Skip header (first line), process data lines
+                    for (i in 1 until allLines.size) {
+                        val line = allLines[i].trim()
                         if (line.isBlank()) continue
 
                         val parts = line.split(";")
@@ -91,7 +100,7 @@ class SettingsViewModel @Inject constructor(
                             val companyName = parts[1].trim()
                             val serviceTypeName = parts[2].trim()
                             val amount = parts[3].trim().toDoubleOrNull()
-                            val isPaid = parts[4].trim().toBoolean()
+                            val isPaid = parts[4].trim().lowercase() == "true"
                             val note = parts.getOrNull(5)?.trim()?.takeIf { it.isNotBlank() }
 
                             if (amount != null && period.isNotBlank() && companyName.isNotBlank()) {
@@ -114,6 +123,8 @@ class SettingsViewModel @Inject constructor(
                                 } else {
                                     skippedCount++
                                 }
+                            } else {
+                                skippedCount++
                             }
                         }
                     }
