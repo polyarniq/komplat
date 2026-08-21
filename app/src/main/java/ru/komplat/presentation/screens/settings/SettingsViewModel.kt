@@ -97,7 +97,7 @@ class SettingsViewModel @Inject constructor(
                         val parts = line.split(";")
                         if (parts.size >= 5) {
                             val period = parts[0].trim()
-                            val companyName = parts[1].trim()
+                            val companyNameRaw = parts[1].trim()
                             val serviceTypeName = parts[2].trim()
                             val amountStr = parts[3].trim()
                             val isPaidStr = parts[4].trim()
@@ -105,10 +105,25 @@ class SettingsViewModel @Inject constructor(
 
                             val amount = amountStr.toDoubleOrNull()
 
-                            if (amount != null && period.isNotBlank() && companyName.isNotBlank()) {
-                                // Find company by name (exact match first, then case-insensitive)
-                                val company = companies.find { it.name == companyName }
-                                    ?: companies.find { it.name.equals(companyName, ignoreCase = true) }
+                            if (amount != null && period.isNotBlank() && companyNameRaw.isNotBlank()) {
+                                // Normalize company name for matching
+                                val companyNameNorm = companyNameRaw
+                                    .replace("\"", "\"")
+                                    .replace("\"", "\"")
+                                    .replace(Regex("\\s+"), " ")
+                                    .trim()
+
+                                // Find company by name (multiple strategies)
+                                val company = companies.find { it.name == companyNameRaw }
+                                    ?: companies.find { it.name.trim() == companyNameRaw }
+                                    ?: companies.find {
+                                        it.name.replace("\"", "\"")
+                                            .replace("\"", "\"")
+                                            .replace(Regex("\\s+"), " ")
+                                            .trim() == companyNameNorm
+                                    }
+                                    ?: companies.find { it.name.contains(companyNameRaw, ignoreCase = true) }
+                                    ?: companies.find { companyNameRaw.contains(it.name, ignoreCase = true) }
 
                                 if (company != null) {
                                     try {
@@ -143,13 +158,6 @@ class SettingsViewModel @Inject constructor(
                 }
                 _uiState.update {
                     it.copy(isImporting = false, importResult = result)
-                }
-
-                _uiState.update {
-                    it.copy(
-                        isImporting = false,
-                        importResult = "Импортировано: $importedCount, пропущено: $skippedCount"
-                    )
                 }
             } catch (e: Exception) {
                 _uiState.update {
