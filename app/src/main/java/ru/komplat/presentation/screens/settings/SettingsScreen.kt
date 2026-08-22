@@ -26,10 +26,16 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    val importLauncher = rememberLauncherForActivityResult(
+    val csvImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let { viewModel.importFromCsv(it) }
+    }
+
+    val backupImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.importBackup(it) }
     }
 
     Scaffold(
@@ -53,7 +59,7 @@ fun SettingsScreen(
         ) {
             // Export section
             Text(
-                text = "Экспорт данных",
+                text = "Экспорт",
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -62,16 +68,26 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isExporting
             ) {
-                if (uiState.isExporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Icon(Icons.Default.FileDownload, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Экспорт в CSV")
-                }
+                Icon(Icons.Default.FileDownload, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Экспорт в CSV")
+            }
+
+            Button(
+                onClick = { viewModel.exportBackup() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isExporting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Icon(Icons.Default.Archive, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Резервная копия (ZIP)")
+            }
+
+            if (uiState.isExporting) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
             if (uiState.exportFile != null) {
@@ -81,7 +97,7 @@ fun SettingsScreen(
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "Файл экспорта готов:")
+                        Text(text = "Файл готов: ${uiState.exportFile?.name}")
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
@@ -112,25 +128,35 @@ fun SettingsScreen(
 
             // Import section
             Text(
-                text = "Импорт данных",
+                text = "Импорт",
                 style = MaterialTheme.typography.titleMedium
             )
 
-            Button(
-                onClick = { importLauncher.launch("text/*") },
+            OutlinedButton(
+                onClick = { csvImportLauncher.launch("text/*") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isImporting
             ) {
-                if (uiState.isImporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Icon(Icons.Default.FileUpload, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Импорт из CSV")
-                }
+                Icon(Icons.Default.FileUpload, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Импорт из CSV")
+            }
+
+            Button(
+                onClick = { backupImportLauncher.launch("application/zip") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isImporting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Icon(Icons.Default.Restore, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Восстановить из копии")
+            }
+
+            if (uiState.isImporting) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
             if (uiState.importResult != null) {
@@ -185,7 +211,7 @@ fun SettingsScreen(
             Card {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(text = "KomPlat - Учёт коммунальных платежей")
-                    Text(text = "Версия 1.0.0")
+                    Text(text = "Версия 1.1.0")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Приложение для ведения учёта коммунальных расходов.",

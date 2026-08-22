@@ -29,6 +29,7 @@ interface ExpenseRepository {
 }
 
 interface AttachedFileRepository {
+    fun getAllFiles(): Flow<List<AttachedFile>>
     fun getFilesByExpense(expenseId: Long): Flow<List<AttachedFile>>
     fun getFilesByCompany(companyId: Long): Flow<List<AttachedFile>>
     suspend fun getFileById(id: Long): AttachedFile?

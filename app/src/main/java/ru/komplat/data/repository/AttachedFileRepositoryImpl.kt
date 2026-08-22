@@ -25,6 +25,17 @@ class AttachedFileRepositoryImpl @Inject constructor(
     private val dbHelper: DatabaseHelper
 ) : AttachedFileRepository {
 
+    override fun getAllFiles(): Flow<List<AttachedFile>> = flow {
+        val files = mutableListOf<AttachedFile>()
+        val cursor = dbHelper.query(TABLE_FILES, orderBy = "$COL_CREATED_AT DESC")
+        cursor.use {
+            while (it.moveToNext()) {
+                files.add(cursorToFile(it))
+            }
+        }
+        emit(files)
+    }.flowOn(Dispatchers.IO)
+
     override fun getFilesByExpense(expenseId: Long): Flow<List<AttachedFile>> = flow {
         val files = mutableListOf<AttachedFile>()
         val cursor = dbHelper.query(TABLE_FILES, selection = "$COL_EXPENSE_ID = ?", selectionArgs = arrayOf(expenseId.toString()), orderBy = "$COL_CREATED_AT DESC")
