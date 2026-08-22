@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onNavigateToServiceTypes: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -198,6 +199,23 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
                 }
+            }
+
+            Divider()
+
+            // Service types management
+            Text(
+                text = "Справочники",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            OutlinedButton(
+                onClick = onNavigateToServiceTypes,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Label, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Типы услуг")
             }
 
             Spacer(modifier = Modifier.height(16.dp))

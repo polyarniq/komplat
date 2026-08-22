@@ -10,7 +10,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         private const val DATABASE_NAME = "komplat.db"
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 4
+
+        const val TABLE_CUSTOM_SERVICE_TYPES = "custom_service_types"
 
         const val TABLE_COMPANIES = "utility_companies"
         const val COL_ID = "id"
@@ -45,6 +47,14 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE $TABLE_CUSTOM_SERVICE_TYPES (
+                $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_NAME TEXT NOT NULL UNIQUE,
+                $COL_CREATED_AT INTEGER NOT NULL
+            )
+        """)
+
         db.execSQL("""
             CREATE TABLE $TABLE_COMPANIES (
                 $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,6 +116,15 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         }
         if (oldVersion < 3) {
             db.execSQL("ALTER TABLE $TABLE_COMPANIES ADD COLUMN $COL_CUSTOM_TYPE TEXT")
+        }
+        if (oldVersion < 4) {
+            db.execSQL("""
+                CREATE TABLE $TABLE_CUSTOM_SERVICE_TYPES (
+                    $COL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    $COL_NAME TEXT NOT NULL UNIQUE,
+                    $COL_CREATED_AT INTEGER NOT NULL
+                )
+            """)
         }
     }
 

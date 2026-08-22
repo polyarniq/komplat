@@ -6,9 +6,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import ru.komplat.data.local.db.DatabaseHelper
 import ru.komplat.data.repository.AttachedFileRepositoryImpl
+import ru.komplat.data.repository.CustomServiceTypeRepositoryImpl
 import ru.komplat.data.repository.ExpenseRepositoryImpl
 import ru.komplat.data.repository.UtilityCompanyRepositoryImpl
 import ru.komplat.domain.repository.AttachedFileRepository
+import ru.komplat.domain.repository.CustomServiceTypeRepository
 import ru.komplat.domain.repository.ExpenseRepository
 import ru.komplat.domain.repository.UtilityCompanyRepository
 import javax.inject.Singleton
@@ -38,5 +40,13 @@ object RepositoryModule {
         dbHelper: DatabaseHelper
     ): AttachedFileRepository {
         return AttachedFileRepositoryImpl(dbHelper)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCustomServiceTypeRepository(
+        dbHelper: DatabaseHelper
+    ): CustomServiceTypeRepository {
+        return CustomServiceTypeRepositoryImpl(dbHelper)
     }
 }

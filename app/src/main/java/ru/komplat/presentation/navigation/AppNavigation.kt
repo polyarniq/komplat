@@ -26,6 +26,7 @@ import ru.komplat.presentation.screens.expense.ExpenseDetailScreen
 import ru.komplat.presentation.screens.expense.ExpenseListScreen
 import ru.komplat.presentation.screens.home.HomeScreen
 import ru.komplat.presentation.screens.settings.SettingsScreen
+import ru.komplat.presentation.screens.settings.ServiceTypesScreen
 import ru.komplat.presentation.screens.statistics.StatisticsScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector?) {
@@ -44,6 +45,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         fun createRoute(companyId: Long) = "company_detail/$companyId"
         fun createNew() = "company_detail/-1"
     }
+    object ServiceTypes : Screen("service_types", "Типы услуг", null)
 }
 
 val bottomNavItems = listOf(Screen.Home, Screen.Statistics, Screen.Companies, Screen.Settings)
@@ -110,7 +112,17 @@ fun AppNavigation() {
             }
 
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(
+                    onNavigateToServiceTypes = {
+                        navController.navigate(Screen.ServiceTypes.route)
+                    }
+                )
+            }
+
+            composable(Screen.ServiceTypes.route) {
+                ServiceTypesScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
 
             composable(
