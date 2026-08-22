@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.komplat.domain.model.CompanyType
+import ru.komplat.domain.model.CustomServiceType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,6 +98,7 @@ fun CompanyDetailScreen(
                     expanded = showTypeDropdown,
                     onDismissRequest = { showTypeDropdown = false }
                 ) {
+                    // Built-in types
                     CompanyType.values().forEach { type ->
                         DropdownMenuItem(
                             text = { Text(getTypeDisplayName(type)) },
@@ -105,6 +107,20 @@ fun CompanyDetailScreen(
                                 showTypeDropdown = false
                             }
                         )
+                    }
+                    // Custom types from database
+                    if (uiState.customServiceTypes.isNotEmpty()) {
+                        Divider()
+                        uiState.customServiceTypes.forEach { customType ->
+                            DropdownMenuItem(
+                                text = { Text(customType.name) },
+                                onClick = {
+                                    viewModel.updateType(CompanyType.OTHER)
+                                    viewModel.updateCustomType(customType.name)
+                                    showTypeDropdown = false
+                                }
+                            )
+                        }
                     }
                 }
             }

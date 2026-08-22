@@ -9,12 +9,14 @@ import ru.komplat.domain.model.*
 import ru.komplat.domain.usecase.company.GetCompanyByIdUseCase
 import ru.komplat.domain.usecase.company.ManageCompanyUseCase
 import ru.komplat.domain.usecase.file.GetFilesUseCase
+import ru.komplat.domain.usecase.servicetype.GetCustomServiceTypesUseCase
 import javax.inject.Inject
 
 data class CompanyDetailUiState(
     val company: UtilityCompany? = null,
     val expenses: List<Expense> = emptyList(),
     val files: List<AttachedFile> = emptyList(),
+    val customServiceTypes: List<CustomServiceType> = emptyList(),
     val name: String = "",
     val type: CompanyType = CompanyType.OTHER,
     val customType: String = "",
@@ -33,10 +35,23 @@ data class CompanyDetailUiState(
 class CompanyDetailViewModel @Inject constructor(
     private val getCompanyById: GetCompanyByIdUseCase,
     private val manageCompany: ManageCompanyUseCase,
-    private val getFiles: GetFilesUseCase
+    private val getFiles: GetFilesUseCase,
+    private val getCustomServiceTypes: GetCustomServiceTypesUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CompanyDetailUiState())
     val uiState: StateFlow<CompanyDetailUiState> = _uiState.asStateFlow()
+
+    init {
+        loadCustomServiceTypes()
+    }
+
+    private fun loadCustomServiceTypes() {
+        viewModelScope.launch {
+            getCustomServiceTypes().collect { types ->
+                _uiState.update { it.copy(customServiceTypes = types) }
+            }
+        }
+    }
 
     fun loadCompany(companyId: Long) {
         viewModelScope.launch {

@@ -144,8 +144,13 @@ fun ExpenseDetailScreen(
                 expanded = showServiceTypeDropdown,
                 onExpandedChange = { showServiceTypeDropdown = it }
             ) {
+                val displayValue = if (uiState.selectedCustomServiceType != null) {
+                    uiState.selectedCustomServiceType!!
+                } else {
+                    getTypeDisplayName(uiState.selectedServiceType)
+                }
                 OutlinedTextField(
-                    value = getTypeDisplayName(uiState.selectedServiceType),
+                    value = displayValue,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Тип услуги") },
@@ -158,6 +163,7 @@ fun ExpenseDetailScreen(
                     expanded = showServiceTypeDropdown,
                     onDismissRequest = { showServiceTypeDropdown = false }
                 ) {
+                    // Built-in types
                     CompanyType.values().forEach { type ->
                         DropdownMenuItem(
                             text = { Text(getTypeDisplayName(type)) },
@@ -166,6 +172,19 @@ fun ExpenseDetailScreen(
                                 showServiceTypeDropdown = false
                             }
                         )
+                    }
+                    // Custom types from database
+                    if (uiState.customServiceTypes.isNotEmpty()) {
+                        Divider()
+                        uiState.customServiceTypes.forEach { customType ->
+                            DropdownMenuItem(
+                                text = { Text(customType.name) },
+                                onClick = {
+                                    viewModel.updateCustomServiceType(customType.name)
+                                    showServiceTypeDropdown = false
+                                }
+                            )
+                        }
                     }
                 }
             }

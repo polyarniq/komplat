@@ -14,6 +14,7 @@ import ru.komplat.domain.usecase.expense.UpdateExpenseUseCase
 import ru.komplat.domain.usecase.file.AttachFileUseCase
 import ru.komplat.domain.usecase.file.DeleteFileUseCase
 import ru.komplat.domain.usecase.file.GetFilesUseCase
+import ru.komplat.domain.usecase.servicetype.GetCustomServiceTypesUseCase
 import javax.inject.Inject
 
 data class PendingFile(
@@ -29,7 +30,9 @@ data class ExpenseDetailUiState(
     val filteredCompanies: List<UtilityCompany> = emptyList(),
     val files: List<AttachedFile> = emptyList(),
     val pendingFiles: List<PendingFile> = emptyList(),
+    val customServiceTypes: List<CustomServiceType> = emptyList(),
     val selectedServiceType: CompanyType = CompanyType.OTHER,
+    val selectedCustomServiceType: String? = null,
     val selectedCompanyId: Long? = null,
     val amount: String = "",
     val period: String = "",
@@ -50,13 +53,15 @@ class ExpenseDetailViewModel @Inject constructor(
     private val companyRepository: UtilityCompanyRepository,
     private val getFiles: GetFilesUseCase,
     private val attachFile: AttachFileUseCase,
-    private val deleteFile: DeleteFileUseCase
+    private val deleteFile: DeleteFileUseCase,
+    private val getCustomServiceTypes: GetCustomServiceTypesUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ExpenseDetailUiState())
     val uiState: StateFlow<ExpenseDetailUiState> = _uiState.asStateFlow()
 
     init {
         loadCompanies()
+        loadCustomServiceTypes()
     }
 
     private fun loadCompanies() {
@@ -72,12 +77,34 @@ class ExpenseDetailViewModel @Inject constructor(
         }
     }
 
+    private fun loadCustomServiceTypes() {
+        viewModelScope.launch {
+            getCustomServiceTypes().collect { types ->
+                _uiState.update { it.copy(customServiceTypes = types) }
+            }
+        }
+    }
+
     fun updateServiceType(type: CompanyType) {
         _uiState.update {
             it.copy(
                 selectedServiceType = type,
+                selectedCustomServiceType = null,
                 selectedCompanyId = null,
                 filteredCompanies = it.allCompanies.filter { c -> c.type == type }
+            )
+        }
+    }
+
+    fun updateCustomServiceType(customTypeName: String) {
+        _uiState.update {
+            it.copy(
+                selectedServiceType = CompanyType.OTHER,
+                selectedCustomServiceType = customTypeName,
+                selectedCompanyId = null,
+                filteredCompanies = it.allCompanies.filter { c ->
+                    c.type == CompanyType.OTHER && c.customType == customTypeName
+                }
             )
         }
     }
